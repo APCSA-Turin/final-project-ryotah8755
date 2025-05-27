@@ -6,11 +6,10 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 public class WeatherAPI {
-    public static String getWeatherData(double lat, double lon, long unix, String apiKey) throws Exception {
+    public static String getWeatherData(double lat, double lon, long unixTime, String apiKey) throws Exception {
         String urlStr = String.format(
-            "https://api.openweathermap.org/data/2.5/onecall/timemachine?lat=%f&lon=%f&dt=%d&appid=%s&units=metric",
-            lat, lon, unix, apiKey
-        );
+            "https://api.openweathermap.org/data/3.0/onecall/timemachine?lat=%f&lon=%f&dt=%d&appid=%s&units=metric",
+            lat, lon, unixTime, apiKey);
         URL url = new URL(urlStr);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("GET");

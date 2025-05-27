@@ -68,8 +68,8 @@ public class GlobeWeatherApp {
             long unix = LocalDate.of(year, month, day)
                                  .atStartOfDay(ZoneOffset.UTC).toEpochSecond();
             try {
-                String json = WeatherAPI.getWeatherData(lat, lon, unix, API_KEY);
-                JSONObject cur = new JSONObject(json).getJSONObject("current");
+                // String json = WeatherAPI.getWeatherData(lat, lon, API_KEY);
+                JSONObject cur = new JSONObject().getJSONObject("current");
 
                 temps[i] = cur.getDouble("temp");
                 double p = 0;
