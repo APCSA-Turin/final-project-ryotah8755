@@ -4,79 +4,60 @@ import java.awt.*;
 import javax.swing.*;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import org.json.JSONArray;
-import org.json.JSONObject;
+import java.net.*;
+import java.io.*;
+import org.json.*;
 
 public class MainGUI {
-    private static final String API_KEY = "1143d463ff4fd46586b548ef06f1223e"; // Replace with your real API key
+    private static final String API_KEY = "1143d463ff4fd46586b548ef06f1223e";
 
     public static void main(String[] args) {
-        JFrame frame = new JFrame("Globe Weather Viewer");
-        frame.setSize(500, 400);
+        JFrame frame = new JFrame("Weather for One Day");
+        frame.setSize(500, 300);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        JLabel latLabel = new JLabel("Latitude:");
-        JTextField latField = new JTextField();
-        JLabel lonLabel = new JLabel("Longitude:");
-        JTextField lonField = new JTextField();
-        JLabel datestartLabel = new JLabel("Start Date (MM-DD):");
-        JTextField datestartField = new JTextField();
-        JLabel dateendLabel = new JLabel("End Date (MM-DD):");
-        JTextField dateendField = new JTextField();
-        JButton fetchButton = new JButton("Get Average Weather");
+        JLabel placeLabel = new JLabel("City/Country:");
+        JTextField placeField = new JTextField();
+        JLabel dateLabel = new JLabel("Date (MM-DD):");
+        JTextField dateField = new JTextField();
+        JButton fetchButton = new JButton("Get Temp");
         JTextArea resultArea = new JTextArea();
         resultArea.setEditable(false);
 
-        JPanel panel = new JPanel(new GridLayout(8, 1));
-        panel.add(latLabel); panel.add(latField);
-        panel.add(lonLabel); panel.add(lonField);
-        panel.add(datestartLabel); panel.add(datestartField);
-        panel.add(dateendLabel); panel.add(dateendField);
+        JPanel panel = new JPanel(new GridLayout(5, 1));
+        panel.add(placeLabel); panel.add(placeField);
+        panel.add(dateLabel); panel.add(dateField);
         panel.add(fetchButton);
         frame.add(panel, BorderLayout.NORTH);
         frame.add(new JScrollPane(resultArea), BorderLayout.CENTER);
 
         fetchButton.addActionListener(e -> {
             try {
-                double lat = Double.parseDouble(latField.getText());
-                double lon = Double.parseDouble(lonField.getText());
+                String place = URLEncoder.encode(placeField.getText(), "UTF-8");
+                String geoUrl = "http://api.openweathermap.org/geo/1.0/direct?q=" + place + "&limit=1&appid=" + API_KEY;
 
-                String[] datestart = datestartField.getText().split("-");
-                String[] dateend = dateendField.getText().split("-");
-                int startMonth = Integer.parseInt(datestart[0]);
-                int startDay = Integer.parseInt(datestart[1]);
-                int endMonth = Integer.parseInt(dateend[0]);
-                int endDay = Integer.parseInt(dateend[1]);
-
-                LocalDate startDate = LocalDate.of(2024, startMonth, startDay);
-                LocalDate endDate = LocalDate.of(2024, endMonth, endDay);
-
-                double tempSum = 0;
-                int count = 0;
-
-                for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
-                    long unix = date.atStartOfDay(ZoneOffset.UTC).toEpochSecond();
-                    String json = WeatherAPI.getWeatherData(lat, lon, unix, API_KEY);
-
-                    JSONObject root = new JSONObject(json);
-                    JSONArray hourly = root.getJSONArray("data");
-
-                    for (int i = 0; i < hourly.length(); i++) {
-                        JSONObject hourData = hourly.getJSONObject(i);
-                        if (hourData.has("temp")) {
-                            tempSum += hourData.getDouble("temp");
-                            count++;
-                        }
-                    }
+                String geoJson = readUrl(geoUrl);
+                JSONArray geoArray = new JSONArray(geoJson);
+                if (geoArray.isEmpty()) {
+                    resultArea.setText("Location not found.");
+                    return;
                 }
+                JSONObject location = geoArray.getJSONObject(0);
+                double lat = location.getDouble("lat");
+                double lon = location.getDouble("lon");
 
-                if (count > 0) {
-                    double avgTemp = tempSum / count;
-                    resultArea.setText("Average Temp from " + startDate + " to " + endDate + ":\n"
-                            + String.format("%.2f", avgTemp) + " °C");
+                String[] dateParts = dateField.getText().split("-");
+                LocalDate date = LocalDate.of(2024, Integer.parseInt(dateParts[0]), Integer.parseInt(dateParts[1]));
+                long unix = date.atStartOfDay(ZoneOffset.UTC).toEpochSecond();
+
+                double temp = WeatherAPI.getDayTemperature(lat, lon, unix, API_KEY);
+                if (!Double.isNaN(temp)) {
+                    resultArea.setText("Temperature for " + location.getString("name") + " on " + date + ":\n" +
+                                       String.format("%.2f °C", temp));
                 } else {
-                    resultArea.setText("No temperature data found for that range.");
+                    resultArea.setText("No data available for that date.");
                 }
+
             } catch (Exception ex) {
                 ex.printStackTrace();
                 resultArea.setText("Error: " + ex.getMessage());
@@ -84,5 +65,17 @@ public class MainGUI {
         });
 
         frame.setVisible(true);
+    }
+
+    private static String readUrl(String urlString) throws IOException {
+        URL url = new URL(urlString);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+        StringBuilder result = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) result.append(line);
+        reader.close();
+        return result.toString();
     }
 }
